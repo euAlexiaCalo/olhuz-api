@@ -8,7 +8,8 @@ namespace olhuz.API.Models
     public class UserPreferences
     {
         [Key]
-        public int Id { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         // Leitor de tela ativado ou desativado
         public bool ScreenReader { get; set; }
@@ -25,8 +26,9 @@ namespace olhuz.API.Models
         // Sons de alerta
         public bool AlertSoundEnabled { get; set; }
         // Relacionamento: ID do usuário responsável por essa configuração
-        public int UserId { get; set; }
-        public User User { get; set; } = null;
+        [ForeignKey(nameof(User))]
+        public Guid UserId { get; set; }
+        public User? User { get; set; }
 
         public UserPreferences()
         {

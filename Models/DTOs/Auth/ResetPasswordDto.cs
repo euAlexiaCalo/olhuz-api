@@ -13,7 +13,7 @@ namespace olhuz.API.Models.DTOs.Auth
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "O campo Nova Senha é obrigatório.")]
-        [MinLength(6, ErrorMessage = "A senha deve possuir pelo menos 6 caracteres.")]
+        [MinLength(8, ErrorMessage = "A senha deve possuir pelo menos 8 caracteres.")]
         [MaxLength(255, ErrorMessage = "A senha deve possuir no máximo 255 caracteres.")]
         public string NewPassword { get; set; } = string.Empty;
 

@@ -6,7 +6,7 @@ namespace olhuz.API.Models.DTOs.Auth
     public class RegisterDto
     {
         [Required(ErrorMessage = "O campo Nome é obrigatório.")]
-        [StringLength(100, MinimumLength = 3, ErrorMessage = "O campo Nome deve ter entre 3 e 100 caracteres.")]
+        [StringLength(100, MinimumLength = 3, ErrorMessage = "O campo Nome não pode exceder 100 caracteres.")]
         public string FullName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "O campo CPF é obrigatório.")]
@@ -27,7 +27,7 @@ namespace olhuz.API.Models.DTOs.Auth
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "O campo Senha é obrigatório.")]
-        [MinLength(6, ErrorMessage = "A senha deve possuir pelo menos 6 caracteres.")]
+        [MinLength(8, ErrorMessage = "A senha deve possuir pelo menos 8 caracteres.")]
         [MaxLength(255, ErrorMessage = "A senha deve possuir no máximo 255 caracteres.")]
         public string Password { get; set; } = string.Empty;
 

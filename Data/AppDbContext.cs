@@ -23,6 +23,11 @@ namespace olhuz.API.Data
             // Chama as configurações padão da classe DbContext
             base.OnModelCreating(modelBuilder);
 
+            // Configuração do ID Aleatório (GUID)
+            modelBuilder.Entity<User>()
+                .Property(u => u.Id)
+                .HasDefaultValueSql("NEWID()");
+
             // ========================================
             // RELACIONAMENTO 1 PARA 1
             // ========================================
@@ -36,7 +41,7 @@ namespace olhuz.API.Data
             modelBuilder.Entity<User>()
 
                 // Primeira ponta do relacionamento a partir de User
-                .HasOne<UserPreferences>()
+                .HasOne(u => u.Preferences)
 
                 // Segunda ponta do relacionamento a partir de UserPreferences
                 .WithOne(p => p.User)
@@ -59,6 +64,11 @@ namespace olhuz.API.Data
                 .IsUnique();
 
             // Inicia as configurações para a entidade UserPreferences
+
+            modelBuilder.Entity<UserPreferences>()
+                .Property(p => p.Id)
+            .HasDefaultValueSql("NEWID()");
+
             modelBuilder.Entity<UserPreferences>()
 
                 // Cria um índice para UserId
