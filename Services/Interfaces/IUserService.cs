@@ -5,8 +5,10 @@ namespace olhuz.API.Services.Interfaces
 {
     public interface IUserService
     {
-        Task<ApiResponse<UserResponseDto>> GetProfileAsync(int userId);
-        Task<ApiResponse<UserResponseDto>> UpdateProfileAsync();
-        Task<ApiResponse<object>> DeactivateAccountAsync(int userId);
+        Task<ApiResponse<UserResponseDto>> GetProfileAsync(Guid userId);
+        Task<ApiResponse<UserResponseDto>> UpdateProfileAsync(Guid userId, UpdateUserProfileDto dto);
+
+        Task<ApiResponse<object>> ChangePasswordAsync(Guid userId, ChangePasswordDto dto);
+        Task<ApiResponse<object>> DeactivateAccountAsync(Guid userId);
     }
 }
