@@ -49,7 +49,8 @@ namespace olhuz.API
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwtIssuer,
                     ValidAudience = jwtAudience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
+                    ClockSkew = TimeSpan.Zero
                 };
             });
 
@@ -59,6 +60,8 @@ namespace olhuz.API
 
             // Habilita os Controllers na API
             builder.Services.AddControllers();
+
+            builder.Services.AddAuthorization();
 
             // ========================================
             // CONFIGURAÇÃO DO SWAGGER PARA TESTES DE ENDPOINTS
