@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using olhuz.API.Data;
 using olhuz.API.Services;
 using olhuz.API.Services.Interfaces;
@@ -64,14 +65,44 @@ namespace olhuz.API
             builder.Services.AddAuthorization();
 
             // ========================================
-            // CONFIGURAÇÃO DO SWAGGER PARA TESTES DE ENDPOINTS
+            // CONFIGURAÇÃO DO SWAGGER COM SUPORTE A JWT
             // ========================================
 
             // Permite que o Swagger identifique os endpoints
             builder.Services.AddEndpointsApiExplorer();
 
-            // Habilita a geração automática da documentação.
-            builder.Services.AddSwaggerGen();
+            // Habilita a geração automática da documentação e autenticação JWT
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new OpenApiInfo { Title = "Olhuz API", Version = "v1" });
+
+                // Define a definição de segurança para o Bearer Token
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Insira o token JWT gerado após o login."
+                });
+
+                // Aplica a exigência de segurança globalmente nos testes do Swagger
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
 
             // ========================================
             // REGISTRO DE SERVIÇOS PERSONALIZADOS
@@ -81,6 +112,8 @@ namespace olhuz.API
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IUserPreferencesService, UserPreferencesService>();
 
             // ========================================
             // CRIA A APLICAÇÃO
