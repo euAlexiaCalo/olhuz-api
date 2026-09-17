@@ -5,6 +5,7 @@ using olhuz.API.Models.Responses.Auth;
 using olhuz.API.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using olhuz.API.Controllers.Base;
 
 namespace olhuz.API.Controllers
 {
@@ -12,7 +13,7 @@ namespace olhuz.API.Controllers
     [Route("api/[controller]")]
     // Garante respostas no formato JSON e simplifica a documentação no Swagger
     [Produces("application/json")]
-    public class AuthController : ControllerBase
+    public class AuthController : MainController
     {
         private readonly IAuthService _authService;
 
@@ -26,7 +27,6 @@ namespace olhuz.API.Controllers
         // ================================================
         // CADASTRO DE USUÁRIO
         // ================================================
-
         [HttpPost("register")]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDto>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDto>), StatusCodes.Status400BadRequest)]
@@ -40,7 +40,6 @@ namespace olhuz.API.Controllers
         // ================================================
         // AUTENTICAÇÃO / LOGIN
         // ================================================
-
         [HttpPost("login")]
         [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status400BadRequest)]
@@ -55,7 +54,6 @@ namespace olhuz.API.Controllers
         // ================================================
         // SOLICITAÇÃO DE RECUPERAÇÃO DE SENHA
         // ================================================
-
         [HttpPost("forgot-password")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
