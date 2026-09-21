@@ -30,6 +30,19 @@ namespace olhuz.API
             });
 
             // ========================================
+            // CONFIGURAÇÃO DE CORS
+            // ========================================
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+
+            // ========================================
             // CONFIGURAÇÃO DA AUTENTICAÇÃO JWT
             // ========================================
 
@@ -141,6 +154,9 @@ namespace olhuz.API
 
             // Habilita arquivos estáticos
             app.UseStaticFiles();
+
+            // Habilita o CORS globalmente
+            app.UseCors("AllowAll");
 
             // Redireciona automaticamente requisições HTTP para HTTPS fora do ambiente de desenvolvimento
             if (!app.Environment.IsDevelopment())
