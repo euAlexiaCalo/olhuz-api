@@ -139,6 +139,9 @@ namespace olhuz.API
             // MIDDLEWARES DA APLICAÇÃO
             // ========================================
 
+            // Habilita arquivos estáticos
+            app.UseStaticFiles();
+
             // Redireciona automaticamente requisições HTTP para HTTPS fora do ambiente de desenvolvimento
             if (!app.Environment.IsDevelopment())
             {
