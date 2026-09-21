@@ -65,6 +65,19 @@ namespace olhuz.API.Controllers
         }
 
         // ================================================
+        // VERIFICAR TOKEN DE REDEFINIÇÃO
+        // ================================================
+        [HttpPost("verify-reset-token")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> VerifyResetToken([FromBody] VerifyResetTokenDto dto)
+        {
+            var result = await _authService.VerifyResetTokenAsync(dto);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        // ================================================
         // REDEFINIÇÃO DE SENHA COM CÓDIGO DE VERIFICAÇÃO
         // ================================================
         [HttpPost("reset-password")]

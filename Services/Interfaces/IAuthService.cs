@@ -10,6 +10,7 @@ namespace olhuz.API.Services.Interfaces
         Task<ApiResponse<UserResponseDto>> RegisterAsync(RegisterDto dto);
         Task<ApiResponse<LoginResponse>> LoginAsync(LoginDto dto);
         Task<ApiResponse<object>> ForgotPasswordAsync(ForgotPasswordDto dto);
+        Task<ApiResponse<object>> VerifyResetTokenAsync(VerifyResetTokenDto dto);
         Task<ApiResponse<object>> ResetPasswordAsync(ResetPasswordDto dto);
     }
 }

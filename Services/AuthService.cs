@@ -66,13 +66,13 @@ namespace olhuz.API.Services
 
             try
             {
-                if (await _context.Users.AnyAsync(user => user.CPF == cleanCpf))
+                if (await _context.Users.AnyAsync(user => user.CPF == cleanCpf && user.IsActive))
                 return CreateErrorResponse<UserResponseDto>("Este CPF já está cadastrado no sistema.");
 
-                if (await _context.Users.AnyAsync(user => user.PhoneNumber == cleanPhone))
+                if (await _context.Users.AnyAsync(user => user.PhoneNumber == cleanPhone && user.IsActive))
                 return CreateErrorResponse<UserResponseDto>("Este número de telefone já está cadastrado no sistema.");
 
-                if (await _context.Users.AnyAsync(user => user.Email == normalizedEmail))
+                if (await _context.Users.AnyAsync(user => user.Email == normalizedEmail && user.IsActive))
                     return CreateErrorResponse<UserResponseDto>("Este email já está cadastrado no sistema.");
             } catch (Exception ex)
             {
@@ -226,7 +226,7 @@ namespace olhuz.API.Services
             // ================================================
 
             if (user == null || !user.IsActive)
-                return CreateSuccessResponse<object>("Se o e-mail informado estiver cadastrado em nosso sistema, você receberá as instruções para redefinição de senha.");
+                return CreateSuccessResponse<object>("Se o e-mail informado estiver ativo em nosso sistema, você receberá o token para redefinição de senha.");
 
             // ================================================
             // GERAÇÃO DO TOKEN E DEFINIÇÃO DA EXPIRAÇÃO
@@ -269,6 +269,67 @@ namespace olhuz.API.Services
             return CreateSuccessResponse<object>("Se o e-mail informado estiver cadastrado em nosso sistema, você receberá as instruções para redefinição de senha.");
         }
 
+        public async Task<ApiResponse<object>> VerifyResetTokenAsync(VerifyResetTokenDto dto)
+        {
+            // ================================================
+            // VALIDAÇÕES DE ENTRADA
+            // ================================================
+
+            if (!IsValidEmail(dto.Email, out string normalizedEmail))
+                return CreateErrorResponse<object>(
+                    "O endereço de e-mail informado é inválido.");
+
+            if (string.IsNullOrWhiteSpace(dto.Token))
+                return CreateErrorResponse<object>(
+                    "O token é obrigatório.");
+
+            if (dto.Token.Length != 6)
+                return CreateErrorResponse<object>("O código de verificação deve ter exatamente 6 dígitos.");
+
+            // ================================================
+            // CONSULTA AO BANCO
+            // ================================================
+
+            User? user;
+
+            try
+            {
+                user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Erro ao consultar usuário durante a verificação do token para {Email}",
+                    normalizedEmail);
+
+                return CreateErrorResponse<object>(
+                    "Ocorreu um erro interno ao verificar o token.",
+                    500);
+            }
+
+            // ================================================
+            // VERIFICAÇÃO DE VALIDADE DO TOKEN
+            // ================================================
+
+            if (user.TokenUsed)
+                return CreateErrorResponse<object>("Este token já foi utilizado.");
+
+            if (user.TokenExpirationDate == null || user.TokenExpirationDate < DateTime.UtcNow)
+                return CreateErrorResponse<object>("O token expirou. Solicite um novo código.");
+
+            if (string.IsNullOrEmpty(user.RecoveryToken) || !Verify(dto.Token, user.RecoveryToken))
+                return CreateErrorResponse<object>("Token inválido ou expirado.");
+
+            // ================================================
+            // RETORNO
+            // ================================================
+
+            return CreateSuccessResponse<object>(
+                "Token válido. Você pode redefinir sua senha.");
+        }
+
         public async Task<ApiResponse<object>> ResetPasswordAsync(ResetPasswordDto dto)
         {
             // ================================================
@@ -276,13 +337,21 @@ namespace olhuz.API.Services
             // ================================================
 
             if (!IsValidEmail(dto.Email, out string normalizedEmail))
-                return CreateErrorResponse<object>("Código de verificação ou e-mail inválidos.");
+                return CreateErrorResponse<object>("O endereço de e-mail informado é inválido.");
 
-            if (string.IsNullOrWhiteSpace(dto.Token) || dto.Token.Length != 6)
-                return CreateErrorResponse<object>("O código de verificação deve ter exatamente 6 dígitos.");
+            if (string.IsNullOrWhiteSpace(dto.Token))
+                return CreateErrorResponse<object>(
+                    "O token é obrigatório.");
+
+            if (dto.Token.Length != 6)
+                return CreateErrorResponse<object>("O token deve ter exatamente 6 dígitos.");
 
             if (!IsValidPassword(dto.NewPassword))
                 return CreateErrorResponse<object>("A nova senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e caracteres especiais.");
+
+            if (dto.NewPassword != dto.ConfirmPassword)
+                return CreateErrorResponse<object>(
+                    "As senhas não coincidem.");
 
             // ================================================
             // CONSULTA AO BANCO DE DADOS
@@ -305,23 +374,16 @@ namespace olhuz.API.Services
             // ================================================
 
             if (user == null || !user.IsActive)
-                return CreateErrorResponse<object>("Código de verificação inválido ou expirado.");
+                return CreateErrorResponse<object>("Não foi possível redefinir a senha.");
 
             if (user.TokenUsed)
                 return CreateErrorResponse<object>("Este código de verificação já foi utilizado.");
 
             if (user.TokenExpirationDate == null || user.TokenExpirationDate < DateTime.UtcNow)
-                return CreateErrorResponse<object>("O código de verificação expirou. Solicite um novo código.");
+                return CreateErrorResponse<object>("O token expirou. Solicite um novo código.");
 
             if (string.IsNullOrEmpty(user.RecoveryToken) || !Verify(dto.Token, user.RecoveryToken))
-                return CreateErrorResponse<object>("Código de verificação inválido.");
-
-            // ================================================
-            // VERIFICAÇÃO DE DIVERGÊNCIA DA SENHA ATUAL
-            // ================================================
-
-            if (Verify(dto.NewPassword, user.PasswordHash))
-                return CreateErrorResponse<object>("A nova senha deve ser diferente da senha atual.");
+                return CreateErrorResponse<object>("Token inválido ou expirado.");
 
             // ================================================
             // ATUALIZAÇÃO DA SENHA E INVALIDAÇÃO DO TOKEN

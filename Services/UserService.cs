@@ -177,7 +177,7 @@ namespace olhuz.API.Services
             // CONSULTA AO BANCO DE DADOS
             // ================================================
 
-            var (user, errorResponse) = await GetActiveUserByIdAsync<object>(userId, "desativação de conta");
+            var (user, errorResponse) = await GetActiveUserByIdAsync<object>(userId, "exclusão de conta");
             if (errorResponse != null) return errorResponse;
 
             // ================================================
@@ -192,15 +192,15 @@ namespace olhuz.API.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao salvar desativação de conta para o usuário {UserId}", userId);
-                return CreateErrorResponse<object>("Ocorreu um erro interno ao desativar a conta.", 500);
+                _logger.LogError(ex, "Erro ao salvar exclusão de conta para o usuário {UserId}", userId);
+                return CreateErrorResponse<object>("Ocorreu um erro interno ao deletar a conta.", 500);
             }
 
             // ================================================
             // RETORNO
             // ================================================
 
-            return CreateSuccessResponse<object>("Sua conta foi desativada com sucesso.");
+            return CreateSuccessResponse<object>("Sua conta foi deletada com sucesso.");
         }
 
         // ================================================
