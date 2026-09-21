@@ -11,7 +11,7 @@ namespace olhuz.API.Models
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
-        [StringLength(100)]
+        [StringLength(150)]
         public string FullName { get; set; } = string.Empty;
 
         [Required]
@@ -22,7 +22,7 @@ namespace olhuz.API.Models
         public DateTime BirthDate { get; set; }
 
         [Required]
-        [MaxLength(20)]
+        [MaxLength(15)]
         [Phone]
         public string PhoneNumber { get; set; } = string.Empty;
 
@@ -47,6 +47,9 @@ namespace olhuz.API.Models
         // Relacionamento 1:1
         // Um usuário possui apenas um conjunto de preferências
         public UserPreferences? Preferences { get; set; }
+
+        // Propriedade de navegação para o histórico de leituras
+        public ICollection<ReadingHistory> ReadingHistories { get; set; } = new List<ReadingHistory>();
 
         public User()
         {
