@@ -5,7 +5,8 @@ namespace olhuz.API.Models.DTOs.Auth
     // DTO utilizado para redefinição de senha
     public class ResetPasswordDto
     {
-        [Required(ErrorMessage = "O campo Token é obrigatório.")]
+        [Required(ErrorMessage = "O token é obrigatório.")]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "O token deve conter 6 dígitos.")]
         public string Token { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "O campo Email é obrigatório.")]
