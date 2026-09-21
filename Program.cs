@@ -114,6 +114,7 @@ namespace olhuz.API
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IUserPreferencesService, UserPreferencesService>();
+            builder.Services.AddScoped<IReadingService, ReadingService>();
 
             // ========================================
             // CRIA A APLICAÇÃO
@@ -138,8 +139,11 @@ namespace olhuz.API
             // MIDDLEWARES DA APLICAÇÃO
             // ========================================
 
-            // Redireciona automaticamente requisições HTTP para HTTPS.
-            app.UseHttpsRedirection();
+            // Redireciona automaticamente requisições HTTP para HTTPS fora do ambiente de desenvolvimento
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             // Habilita autenticação JWT.
             app.UseAuthentication();
