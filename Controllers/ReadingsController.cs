@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using olhuz.API.Models.DTOs.Readings;
 using olhuz.API.Services;
 using System.Security.Claims;
+using olhuz.API.Services.Interfaces;
 
 namespace olhuz.API.Controllers
 {
