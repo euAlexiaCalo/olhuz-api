@@ -367,8 +367,8 @@ appsettings.json
 appsettings.Development.json
 
 # Arquivos enviados pelos usuários
-/olhuz.API/wwwroot/uploads/*
+wwwroot/uploads/*
 
 # Mantém o .gitignore dentro da pasta
-!/olhuz.API/wwwroot/uploads/.gitignore
+!/wwwroot/uploads/.gitignore
 
