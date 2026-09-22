@@ -60,63 +60,161 @@ namespace olhuz.API.Services
             };
         }
 
-        public async Task<ApiResponse<ReadingHistoryResponse>> CreateReadingAsync(Guid userId, CreateReadingDto dto)
+        public async Task<ApiResponse<ReadingHistoryResponse>> CreateReadingAsync( Guid userId, CreateReadingDto dto)
         {
+            string? fullPath = null;
+
             try
             {
                 string? filePath = null;
                 string? fileName = null;
                 string? fileSizeStr = null;
                 string generatedDescription = dto.DescriptionText;
+                string finalTitle = dto.Title;
 
-                // Processa o upload do arquivo se ele existir
+                // ============================================================
+                // PROCESSAMENTO DO ARQUIVO
+                // ============================================================
+
                 if (dto.File != null && dto.File.Length > 0)
                 {
                     fileName = dto.File.FileName;
 
-                    // Calcula o tamanho formatado em KB ou MB
+                    // Calcula o tamanho do arquivo
                     long sizeInBytes = dto.File.Length;
+
                     fileSizeStr = sizeInBytes > 1024 * 1024
                         ? $"{Math.Round((double)sizeInBytes / (1024 * 1024), 1)} MB"
                         : $"{Math.Round((double)sizeInBytes / 1024, 1)} KB";
 
-                    // Define o caminho de salvamento em wwwroot/uploads
-                    string uploadsFolder = Path.Combine(_env.WebRootPath ?? Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                    // ========================================================
+                    // DEFINE A PASTA DE UPLOAD
+                    // ========================================================
+
+                    string uploadsFolder = Path.Combine(
+                        _env.WebRootPath ?? Path.Combine(
+                            Directory.GetCurrentDirectory(),
+                            "wwwroot"
+                        ),
+                        "uploads"
+                    );
 
                     if (!Directory.Exists(uploadsFolder))
                     {
                         Directory.CreateDirectory(uploadsFolder);
                     }
 
-                    string uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
-                    string fullPath = Path.Combine(uploadsFolder, uniqueFileName);
+                    // ========================================================
+                    // CRIA UM NOME ÚNICO PARA O ARQUIVO
+                    // ========================================================
 
-                    using (var stream = new FileStream(fullPath, FileMode.Create))
+                    string uniqueFileName =
+                        $"{Guid.NewGuid()}_{fileName}";
+
+                    fullPath = Path.Combine(
+                        uploadsFolder,
+                        uniqueFileName
+                    );
+
+                    // ========================================================
+                    // SALVA O ARQUIVO
+                    // ========================================================
+
+                    using (var stream = new FileStream(
+                        fullPath,
+                        FileMode.Create))
                     {
                         await dto.File.CopyToAsync(stream);
                     }
 
-                    // Caminho relativo ou URL para acessar no app
+                    // Caminho relativo que será salvo no banco
                     filePath = $"/uploads/{uniqueFileName}";
 
-                    // Chama a IA do Gemini para gerar a descrição automática da imagem/arquivo
-                    try
+                    // ========================================================
+                    // ENVIA PARA A IA
+                    // ========================================================
+
+                    string aiResult =
+                        await DescribeImageWithGeminiAsync(dto.File);
+
+                    // ========================================================
+                    // EXTRAI TÍTULO E DESCRIÇÃO
+                    // ========================================================
+
+                    if (!string.IsNullOrWhiteSpace(aiResult))
                     {
-                        generatedDescription = await DescribeImageWithGeminiAsync(dto.File);
+                        var upperResult = aiResult.ToUpperInvariant();
+
+                        if (
+                            upperResult.Contains("TITULO:") &&
+                            upperResult.Contains("DESCRICAO:")
+                        )
+                        {
+                            int titleIndex =
+                                upperResult.IndexOf("TITULO:");
+
+                            int descIndex =
+                                upperResult.IndexOf("DESCRICAO:");
+
+                            if (descIndex > titleIndex)
+                            {
+                                finalTitle = aiResult
+                                    .Substring(
+                                        titleIndex + "TITULO:".Length,
+                                        descIndex -
+                                        (titleIndex + "TITULO:".Length)
+                                    )
+                                    .Trim();
+
+                                generatedDescription = aiResult
+                                    .Substring(
+                                        descIndex + "DESCRICAO:".Length
+                                    )
+                                    .Trim();
+                            }
+                        }
+                        else
+                        {
+                            // Caso a IA não siga exatamente o formato
+                            var lines = aiResult.Split(
+                                new[] { '\r', '\n' },
+                                StringSplitOptions.RemoveEmptyEntries
+                            );
+
+                            if (lines.Length > 0)
+                            {
+                                finalTitle =
+                                    lines[0].Length > 30
+                                        ? lines[0].Substring(0, 30) + "..."
+                                        : lines[0];
+
+                                generatedDescription = aiResult;
+                            }
+                        }
                     }
-                    catch (Exception ex)
+
+                    // ========================================================
+                    // VERIFICA SE A IA REALMENTE GEROU UMA DESCRIÇÃO
+                    // ========================================================
+
+                    if (string.IsNullOrWhiteSpace(generatedDescription))
                     {
-                        generatedDescription = "Erro ao gerar descrição pela IA: " + ex.Message;
+                        throw new Exception(
+                            "A IA não retornou uma descrição válida."
+                        );
                     }
                 }
 
-                // Salva no banco de dados com a descrição gerada pela IA
+                // ============================================================
+                // SALVA A LEITURA NO BANCO
+                // ============================================================
+
                 var reading = new ReadingHistory
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
                     Type = dto.Type,
-                    Title = dto.Title,
+                    Title = finalTitle,
                     FileName = fileName,
                     FileSize = fileSizeStr,
                     FilePath = filePath,
@@ -125,7 +223,12 @@ namespace olhuz.API.Services
                 };
 
                 _context.ReadingHistories.Add(reading);
+
                 await _context.SaveChangesAsync();
+
+                // ============================================================
+                // MONTA A RESPOSTA
+                // ============================================================
 
                 var responseDto = new ReadingHistoryResponse
                 {
@@ -135,7 +238,8 @@ namespace olhuz.API.Services
                     FileName = reading.FileName,
                     FileSize = reading.FileSize,
                     FileUri = reading.FilePath,
-                    UploadDate = reading.UploadDate.ToString("dd 'de' MMMM 'de' yyyy"),
+                    UploadDate = reading.UploadDate
+                        .ToString("dd 'de' MMMM 'de' yyyy"),
                     DescriptionText = reading.DescriptionText
                 };
 
@@ -148,97 +252,294 @@ namespace olhuz.API.Services
             }
             catch (Exception ex)
             {
+                // ============================================================
+                // SE A IA OU O PROCESSAMENTO FALHAR,
+                //     NÃO SALVA A LEITURA NO BANCO
+                // ============================================================
+
+                if (!string.IsNullOrEmpty(fullPath) &&
+                    File.Exists(fullPath))
+                {
+                    try
+                    {
+                        File.Delete(fullPath);
+                    }
+                    catch
+                    {
+                        // Não interrompe o tratamento do erro principal
+                    }
+                }
+
                 return new ApiResponse<ReadingHistoryResponse>
                 {
                     Error = true,
-                    Message = $"Erro ao processar aleitura: {ex.Message}",
+                    Message = $"Erro ao processar a leitura: {ex.Message}",
                     Data = null
                 };
             }
         }
 
         // Método privado que encapsula a chamada à API do Gemini
-        private async Task<string> DescribeImageWithGeminiAsync(IFormFile arquivo)
+        private async Task<string> DescribeImageWithGeminiAsync(
+    IFormFile arquivo)
         {
-            // Pega a chave da API salva
-            var apiKey = _configuration["OlhuzGeminiApiKey"];
+            // ============================================================
+            // PEGA A CHAVE DA API
+            // ============================================================
 
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
+            var apiKey =
+                _configuration["OlhuzGeminiApiKey"];
+
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new Exception(
+                    "A chave da API do Gemini não foi configurada."
+                );
+            }
+
+            // ============================================================
+            // MODELO GEMINI
+            // ============================================================
+
+            const string model = "gemini-3.6-flash";
+
+            string url =
+                $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+
+            // ============================================================
+            // CONVERTE O ARQUIVO PARA BASE64
+            // ============================================================
 
             using var ms = new MemoryStream();
+
             await arquivo.CopyToAsync(ms);
+
             var fileBytes = ms.ToArray();
-            var base64Data = Convert.ToBase64String(fileBytes);
-            var contentType = arquivo.ContentType ?? "application/octet-stream";
 
-            object filePart;
+            var base64Data =
+                Convert.ToBase64String(fileBytes);
 
-            // Se for um PDF ou documento de texto suportado pelo Gemini
-            if (contentType.Contains("pdf") || contentType.Contains("text") || contentType.Contains("document"))
+            // ============================================================
+            // IDENTIFICA O TIPO DO ARQUIVO
+            // ============================================================
+
+            var contentType =
+                arquivo.ContentType;
+
+            if (string.IsNullOrWhiteSpace(contentType))
             {
-                filePart = new
-                {
-                    inline_data = new
-                    {
-                        mime_type = contentType,
-                        data = base64Data
-                    }
-                };
-            }
-            else // Se for imagem (jpg, png, etc.)
-            {
-                filePart = new
-                {
-                    inline_data = new
-                    {
-                        mime_type = contentType,
-                        data = base64Data
-                    }
-                };
+                contentType = "application/octet-stream";
             }
 
-            // Monta o "corpo" da requisição (payload) no formato que o Gemini espera
+            // ============================================================
+            // PARTE DO ARQUIVO ENVIADA PARA O GEMINI
+            // ============================================================
+
+            object filePart = new
+            {
+                inline_data = new
+                {
+                    mime_type = contentType,
+                    data = base64Data
+                }
+            };
+
+            // ============================================================
+            // PROMPT DA OLHUZ
+            // ============================================================
+
+            var promptTreinamento = @"
+Você é o assistente de inteligência artificial especialista
+em acessibilidade visual da Olhuz.
+
+Sua função é interpretar imagens e documentos para pessoas
+cegas ou com baixa visão.
+
+Analise cuidadosamente todo o conteúdo visual disponível.
+
+Descreva informações importantes como:
+
+- pessoas;
+- objetos;
+- ambientes;
+- posições e relações espaciais;
+- cores;
+- textos visíveis;
+- sinais e símbolos;
+- gráficos;
+- tabelas;
+- documentos;
+- elementos relevantes para compreensão do contexto.
+
+A descrição deve ser objetiva, clara, detalhada e útil
+para uma pessoa que não consegue enxergar o conteúdo.
+
+Não invente informações que não estejam presentes.
+
+Retorne a resposta EXATAMENTE neste formato:
+
+TITULO: [título curto de no máximo 4 palavras]
+
+DESCRICAO: [descrição detalhada em texto corrido,
+sem markdown, sem negrito e sem listas]
+";
+
+            // ============================================================
+            // MONTA O PAYLOAD
+            // ============================================================
+
             var payload = new
             {
                 contents = new[]
                 {
-                    new {
-                        parts = new object[]
-                        {
-                            new { text = @"Você é o assistente de voz da Olhuz. Analise este arquivo enviado (que pode ser uma imagem, um documento PDF ou um texto) e elabore uma descrição extremamente detalhada para uma pessoa cega, seguindo REGRAS RÍGIDAS: 
-                            1. NUNCA use negrito (**), itálico (*) ou listas com símbolos. Escreva apenas texto corrido com acentos e limpo.
-                            2. Se for um documento ou PDF, faça um resumo completo do conteúdo, explicando os pontos principais, seções, tabelas ou dados importantes presentes nele.
-                            3. Se for uma imagem, descreva cores, iluminação, objetos e posições detalhadamente.
-                            4. ADAPTAÇÃO DE VOZ: Como o texto será lido por um sintetizador de voz, escreva de forma natural para soar perfeito em português brasileiro." },
-                            filePart
-                        }
-                    }
+            new
+            {
+                parts = new object[]
+                {
+                    new
+                    {
+                        text = promptTreinamento
+                    },
+
+                    filePart
                 }
+            }
+        }
             };
 
-            // Converte o objeto payload em JSON (string)
-            var jsonPayload = JsonConvert.SerializeObject(payload);
+            // ============================================================
+            // CONVERTE O PAYLOAD PARA JSON
+            // ============================================================
 
-            // Prepara o conteúdo da requisição HTTP (JSON + UTF8)
-            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+            var jsonPayload =
+                JsonConvert.SerializeObject(payload);
 
-            // Envia a requisição POST pro Google
-            var response = await _httpClient.PostAsync(url, content);
+            // ============================================================
+            // TENTA ATÉ 3 VEZES
+            // ============================================================
 
-            // Lê a resposta como texto
-            var responseBody = await response.Content.ReadAsStringAsync();
+            const int maxAttempts = 3;
 
-            // Se deu tudo certo...
-            if (response.IsSuccessStatusCode)
+            for (int attempt = 1;
+                 attempt <= maxAttempts;
+                 attempt++)
             {
-                // Converte o JSON da resposta pra objeto dinâmico
-                dynamic result = JsonConvert.DeserializeObject(responseBody);
+                using var request =
+                    new HttpRequestMessage(
+                        HttpMethod.Post,
+                        url
+                    );
 
-                // Navega dentro do JSON gigante e pega só o texto da resposta da IA
-                return result.candidates[0].content.parts[0].text;
+                // ========================================================
+                // ENVIA A API KEY PELO HEADER
+                // ========================================================
+
+                request.Headers.Add(
+                    "x-goog-api-key",
+                    apiKey
+                );
+
+                // ========================================================
+                // ENVIA O JSON
+                // ========================================================
+
+                request.Content =
+                    new StringContent(
+                        jsonPayload,
+                        Encoding.UTF8,
+                        "application/json"
+                    );
+
+                // ========================================================
+                // FAZ A REQUISIÇÃO
+                // ========================================================
+
+                var response =
+                    await _httpClient.SendAsync(request);
+
+                var responseBody =
+                    await response.Content.ReadAsStringAsync();
+
+                // ========================================================
+                // SUCESSO
+                // ========================================================
+
+                if (response.IsSuccessStatusCode)
+                {
+                    dynamic? result =
+                        JsonConvert.DeserializeObject(
+                            responseBody
+                        );
+
+                    string? generatedText =
+                        result?.candidates?[0]
+                            ?.content?.parts?[0]?.text;
+
+                    if (string.IsNullOrWhiteSpace(
+                        generatedText))
+                    {
+                        throw new Exception(
+                            "O Gemini respondeu, mas não retornou texto."
+                        );
+                    }
+
+                    return generatedText;
+                }
+
+                // ========================================================
+                // ERROS TEMPORÁRIOS
+                // ========================================================
+
+                if (
+                    response.StatusCode ==
+                        System.Net.HttpStatusCode.ServiceUnavailable
+                    ||
+                    response.StatusCode ==
+                        System.Net.HttpStatusCode.TooManyRequests
+                    ||
+                    response.StatusCode ==
+                        System.Net.HttpStatusCode.BadGateway
+                    ||
+                    response.StatusCode ==
+                        System.Net.HttpStatusCode.GatewayTimeout
+                )
+                {
+                    Console.WriteLine(
+                        $"Gemini retornou {(int)response.StatusCode}. " +
+                        $"Tentativa {attempt}/{maxAttempts}."
+                    );
+
+                    // Se ainda houver tentativa,
+                    // espera antes de tentar novamente.
+                    if (attempt < maxAttempts)
+                    {
+                        int delaySeconds =
+                            attempt * 2;
+
+                        await Task.Delay(
+                            TimeSpan.FromSeconds(
+                                delaySeconds
+                            )
+                        );
+
+                        continue;
+                    }
+                }
+
+                // ========================================================
+                // ERRO DEFINITIVO
+                // ========================================================
+
+                throw new Exception(
+                    $"Erro ao processar o arquivo com a IA do Gemini. " +
+                    $"HTTP {(int)response.StatusCode}: " +
+                    responseBody
+                );
             }
 
-            return "Erro ao processar o arquivo com a IA do Gemini: " + responseBody;
+            throw new Exception(
+                "Não foi possível obter uma resposta do Gemini."
+            );
         }
     }
 }
