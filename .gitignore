@@ -362,10 +362,13 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Ignorar arquivos de configuracao com chaves/senhas
+# Ignorar arquivos de configuração com chaves/senhas
 appsettings.json
 appsettings.Development.json
 
-# Ignora arquivos enviados na pasta wwwroot/uploads, mas mantém a pasta
+# Arquivos enviados pelos usuários
 /olhuz.API/wwwroot/uploads/*
-!.gitignore
+
+# Mantém o .gitignore dentro da pasta
+!/olhuz.API/wwwroot/uploads/.gitignore
+
