@@ -173,18 +173,17 @@ namespace olhuz.API.Services
 
         public async Task<ApiResponse<object>> DeactivateAccountAsync(Guid userId)
         {
-            // ================================================
             // CONSULTA AO BANCO DE DADOS
-            // ================================================
 
-            var (user, errorResponse) = await GetActiveUserByIdAsync<object>(userId, "exclusão de conta");
+            var (user, errorResponse) = await GetActiveUserByIdAsync<object>(userId, "Desa de conta");
             if (errorResponse != null) return errorResponse;
 
-            // ================================================
-            // PERSISTÊNCIA
-            // ================================================
+            // PERSISTÊNCIA E INVALIDAÇÃO DE TOKENS
 
             user.IsActive = false;
+            user.RecoveryToken = null;
+            user.TokenExpirationDate = null;
+            user.TokenUsed = false;
 
             try
             {
@@ -192,15 +191,13 @@ namespace olhuz.API.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao salvar exclusão de conta para o usuário {UserId}", userId);
-                return CreateErrorResponse<object>("Ocorreu um erro interno ao deletar a conta.", 500);
+                _logger.LogError(ex, "Erro ao salvar desativação de conta para o usuário {UserId}", userId);
+                return CreateErrorResponse<object>("Ocorreu um erro interno ao desativar a conta.", 500);
             }
 
-            // ================================================
             // RETORNO
-            // ================================================
 
-            return CreateSuccessResponse<object>("Sua conta foi deletada com sucesso.");
+            return CreateSuccessResponse<object>("Sua conta foi desativada com sucesso.");
         }
 
         // ================================================

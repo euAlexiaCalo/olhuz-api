@@ -28,11 +28,12 @@ namespace olhuz.API.Services
             _emailService = emailService;
         }
 
+        // ================================================
+        // MÉTODO DE REGISTRAR USUÁRIO
+        // ================================================
         public async Task<ApiResponse<UserResponseDto>> RegisterAsync(RegisterDto dto)
         {
-            // ================================================
             // VALIDAÇÕES DAS REGRAS DE NEGÓCIO DEFINIDAS NO BANCO
-            // ================================================
 
             if (!IsValidFullName(dto.FullName, out string cleanFullName))
                 return CreateErrorResponse<UserResponseDto>("Informe seu nome e sobrenome completos (cada palavra deve ter no mínimo 3 letras).");
@@ -60,9 +61,7 @@ namespace olhuz.API.Services
             if (!IsValidPassword(dto.Password))
                 return CreateErrorResponse<UserResponseDto>("A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e caracteres especiais.");
 
-            // ================================================
             // VERIFICAR OS DADOS NO BANCO
-            // ================================================
 
             try
             {
@@ -80,9 +79,7 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<UserResponseDto>("Ocorreu um erro interno ao realizar o cadastro.", 500);
             }
 
-            // ================================================
             // INSTÂNCIA DA NOVA ENTIDADE
-            // ================================================
 
             // Criptografar a senha do usuário
             string passwordHash = HashPassword(dto.Password);
@@ -99,9 +96,8 @@ namespace olhuz.API.Services
                 Preferences = new UserPreferences(), // Salva as prefêrencias padrão
             };
 
-            // ================================================
             // PROTEÇÃO ADICIONAL caso duas requisições tentem cadastrar os mesmos dados simultaneamente
-            // ================================================
+
             try
             {
                 // Salvar o usuário no banco
@@ -119,19 +115,20 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<UserResponseDto>("Ocorreu um erro interno ao realizar o cadastro.", 500);
             }
 
-            // ================================================
             // RETORNO MAPEADO DA ENTIDADE SALVA
-            // ================================================
+
             var userResponse = MapToUserResponseDto(newUser);
 
             return CreateSuccessResponse("Usuário cadastrado com sucesso!", userResponse, 201);
         }
 
+        // ================================================
+        // MÉTODO DE LOGIN
+        // ================================================
         public async Task<ApiResponse<LoginResponse>> LoginAsync(LoginDto dto)
         {
-            // ================================================
+
             // VALIDAÇÕES DE ENTRADA E FORMATO
-            // ================================================
 
             if (!IsValidEmail(dto.Email, out string normalizedEmail))
                 return CreateErrorResponse<LoginResponse>("E-mail ou senha inválidos.");
@@ -139,15 +136,13 @@ namespace olhuz.API.Services
             if (string.IsNullOrWhiteSpace(dto.Password))
                 return CreateErrorResponse<LoginResponse>("E-mail ou senha inválidos.");
 
-            // ================================================
             // CONSULTA AO BANCO DE DADOS
-            // ================================================
 
             User? user;
 
             try
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail && u.IsActive);
             }
             catch (Exception ex)
             {
@@ -155,19 +150,23 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<LoginResponse>("Ocorreu um erro interno ao processar o login.", 500);
             }
 
-            // ================================================
             // VERIFICAÇÃO DE CREDENCIAIS
-            // ================================================
 
-            if (user == null || !Verify(dto.Password, user.PasswordHash))
+            if (user == null || !Verify(dto.Password, user.PasswordHash) || !user.IsActive)
                 return CreateErrorResponse<LoginResponse>("E-mail ou senha inválidos.");
 
-            if (!user.IsActive)
-                return CreateErrorResponse<LoginResponse>("Sua conta está desativada. Entre em contato com o suporte.", 403);
+            // LIMPEZA DE TOKEN SE O USUÁRIO LEMBROU A SENHA APÓS TER SOLICITADO A REDEFINIÇÃO
+            if (user.RecoveryToken != null)
+            {
+                user.RecoveryToken = null;
+                user.TokenExpirationDate = null;
+                user.TokenUsed = false;
 
-            // ================================================
+                // Salva a limpeza silenciosamente no banco
+                await _context.SaveChangesAsync();
+            }
+
             // GERAR TOKEN JWT
-            // ================================================
 
             TokenResultDto tokenResult;
 
@@ -182,9 +181,7 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<LoginResponse>("Ocorreu um erro interno ao gerar a sessão de acesso.", 500);
             }
 
-            // ================================================
             // MONTAGEM DO OBJETO DE RESPOSTA
-            // ================================================
 
             var loginResponse = new LoginResponse
             {
@@ -195,25 +192,24 @@ namespace olhuz.API.Services
 
             return CreateSuccessResponse("Login realizado com sucesso!", loginResponse);
         }
-        
+
+        // ================================================
+        // MÉTODO DE REQUISIÇÃO DE SENHA
+        // ================================================
         public async Task<ApiResponse<object>> ForgotPasswordAsync(ForgotPasswordDto dto)
         {
-            // ================================================
             // VALIDAÇÕES DE ENTRADA E FORMATO
-            // ================================================
 
             if (!IsValidEmail(dto.Email, out string normalizedEmail))
                 return CreateErrorResponse<object>("O endereço de e-mail informado é inválido.");
 
-            // ================================================
             // CONSULTA AO BANCO DE DADOS
-            // ================================================
 
             User? user;
 
             try
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail && u.IsActive);
             }
             catch (Exception ex)
             {
@@ -221,16 +217,12 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<object>("Ocorreu um erro interno ao processar a solicitação de recuperação de senha.", 500);
             }
 
-            // ================================================
             // PROTEÇÃO ANTI-ENUMERAÇÃO DE USUÁRIOS
-            // ================================================
 
             if (user == null || !user.IsActive)
                 return CreateSuccessResponse<object>("Se o e-mail informado estiver ativo em nosso sistema, você receberá o token para redefinição de senha.");
 
-            // ================================================
             // GERAÇÃO DO TOKEN E DEFINIÇÃO DA EXPIRAÇÃO
-            // ================================================
 
             // Gera um token único e aleatório com 6 dígitos
             string token = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
@@ -240,9 +232,7 @@ namespace olhuz.API.Services
             user.TokenExpirationDate = DateTime.UtcNow.AddMinutes(15);
             user.TokenUsed = false;
 
-            // ================================================
             // PERSISTÊNCIA NO BANCO E ENVIO DO E-MAIL
-            // ================================================
 
             try
             {
@@ -262,18 +252,17 @@ namespace olhuz.API.Services
                 _logger.LogError(ex, "Erro ao enviar e-mail de recuperação para {Email}", user.Email);
             }
 
-            // ================================================
             // RETORNO
-            // ================================================
 
             return CreateSuccessResponse<object>("Se o e-mail informado estiver cadastrado em nosso sistema, você receberá as instruções para redefinição de senha.");
         }
 
+        // ================================================
+        // MÉTODO DE VERIFICAR TOKEN
+        // ================================================
         public async Task<ApiResponse<object>> VerifyResetTokenAsync(VerifyResetTokenDto dto)
         {
-            // ================================================
             // VALIDAÇÕES DE ENTRADA
-            // ================================================
 
             if (!IsValidEmail(dto.Email, out string normalizedEmail))
                 return CreateErrorResponse<object>(
@@ -284,18 +273,16 @@ namespace olhuz.API.Services
                     "O token é obrigatório.");
 
             if (dto.Token.Length != 6)
-                return CreateErrorResponse<object>("O código de verificação deve ter exatamente 6 dígitos.");
+                return CreateErrorResponse<object>("O token deve ter exatamente 6 dígitos.");
 
-            // ================================================
             // CONSULTA AO BANCO
-            // ================================================
 
             User? user;
 
             try
             {
                 user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+                    .FirstOrDefaultAsync(u => u.Email == normalizedEmail && u.IsActive);
             }
             catch (Exception ex)
             {
@@ -309,9 +296,7 @@ namespace olhuz.API.Services
                     500);
             }
 
-            // ================================================
             // VERIFICAÇÃO DE VALIDADE DO TOKEN
-            // ================================================
 
             if (user.TokenUsed)
                 return CreateErrorResponse<object>("Este token já foi utilizado.");
@@ -322,19 +307,18 @@ namespace olhuz.API.Services
             if (string.IsNullOrEmpty(user.RecoveryToken) || !Verify(dto.Token, user.RecoveryToken))
                 return CreateErrorResponse<object>("Token inválido ou expirado.");
 
-            // ================================================
             // RETORNO
-            // ================================================
 
             return CreateSuccessResponse<object>(
                 "Token válido. Você pode redefinir sua senha.");
         }
 
+        // ================================================
+        // MÉTODO DE REDEFINIR SENHA
+        // ================================================
         public async Task<ApiResponse<object>> ResetPasswordAsync(ResetPasswordDto dto)
         {
-            // ================================================
             // VALIDAÇÕES DE ENTRADA E FORMATO
-            // ================================================
 
             if (!IsValidEmail(dto.Email, out string normalizedEmail))
                 return CreateErrorResponse<object>("O endereço de e-mail informado é inválido.");
@@ -353,15 +337,13 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<object>(
                     "As senhas não coincidem.");
 
-            // ================================================
             // CONSULTA AO BANCO DE DADOS
-            // ================================================
 
             User? user;
 
             try
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail && u.IsActive);
             }
             catch (Exception ex)
             {
@@ -369,9 +351,7 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<object>("Ocorreu um erro interno ao processar a solicitação.", 500);
             }
 
-            // ================================================
             // VERIFICAÇÃO DE VALIDADE DO TOKEN E USUÁRIO
-            // ================================================
 
             if (user == null || !user.IsActive)
                 return CreateErrorResponse<object>("Não foi possível redefinir a senha.");
@@ -385,9 +365,7 @@ namespace olhuz.API.Services
             if (string.IsNullOrEmpty(user.RecoveryToken) || !Verify(dto.Token, user.RecoveryToken))
                 return CreateErrorResponse<object>("Token inválido ou expirado.");
 
-            // ================================================
             // ATUALIZAÇÃO DA SENHA E INVALIDAÇÃO DO TOKEN
-            // ================================================
 
             // Criptografa a nova senha do usuário
             user.PasswordHash = HashPassword(dto.NewPassword);
@@ -395,9 +373,7 @@ namespace olhuz.API.Services
             user.TokenExpirationDate = null;
             user.TokenUsed = true;
 
-            // ================================================
             // PERSISTÊNCIA NO BANCO DE DADOS
-            // ================================================
 
             try
             {
@@ -409,9 +385,7 @@ namespace olhuz.API.Services
                 return CreateErrorResponse<object>("Ocorreu um erro interno ao redefinir a senha.", 500);
             }
 
-            // ================================================
             // RETORNO
-            // ================================================
 
             return CreateSuccessResponse<object>("Senha redefinida com sucesso!");
         }

@@ -72,7 +72,7 @@ namespace olhuz.API.Controllers
         // ================================================
         // DESATIVA A CONTA DO USUÁRIO LOGADO
         // ================================================
-        [HttpDelete("profile")]
+        [HttpPatch("profile")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
