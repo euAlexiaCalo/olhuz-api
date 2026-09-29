@@ -1,7 +1,7 @@
 # ---------------------------------------------------
 # ETAPA DE BUILD (SDK do .NET para compilação)
 # ---------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copia o arquivo do projeto (.csproj) e restaura as dependências
@@ -19,7 +19,7 @@ RUN dotnet publish "olhuz.API.csproj" -c Release -o /app/publish /p:UseAppHost=f
 # ---------------------------------------------------
 # ETAPA DE EXECUÇÃO (Runtime leve)
 # ---------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 
 # Copia os arquivos publicados da etapa anterior
