@@ -184,6 +184,13 @@ namespace olhuz.API
             // INICIA A API
             // ========================================
 
+            // Executa as migrations automaticamente ao iniciar a API no Render
+            using (var scope = app.Services.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                dbContext.Database.Migrate();
+            }
+
             // Coloca a aplicação em execução e aguardando requisições.
             app.Run();
         }
