@@ -20,11 +20,14 @@ namespace olhuz.API
             // ========================================
             // CONFIGURAÇÃO DO BANCO DE DADOS
             // ========================================
-
+            
             builder.Services.AddDbContext<AppDbContext>(options =>
             {
                 // Provedor do banco
+                /* PARA O BANCO SQL SERVER
                 options.UseSqlServer(
+                */
+                options.UseNpgsql(
                     // Obtém a string de conexão
                     builder.Configuration.GetConnectionString("DefaultConnection"));
             });

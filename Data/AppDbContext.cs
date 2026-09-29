@@ -39,9 +39,10 @@ namespace olhuz.API.Data
                 // Chave primária
                 entity.HasKey(u => u.Id);
 
-                // ID gerado pelo SQL Server
+                // ID gerado pelo Banco
                 entity.Property(u => u.Id)
-                    .HasDefaultValueSql("NEWID()");
+                    //.HasDefaultValueSql("NEWID()"); PARA SQL SERVER
+                    .HasDefaultValueSql("gen_random_uuid()");
 
                 // Nome completo
                 entity.Property(u => u.FullName)
@@ -79,7 +80,8 @@ namespace olhuz.API.Data
 
                 // Data de expiração do token
                 entity.Property(u => u.TokenExpirationDate)
-                    .HasColumnType("datetime2");
+                    //.HasColumnType("datetime2"); PARA SQL SERVER
+                    .HasColumnType("timestamp with time zone");
 
                 // Token já utilizado
                 entity.Property(u => u.TokenUsed)
@@ -88,8 +90,10 @@ namespace olhuz.API.Data
 
                 // Data de criação
                 entity.Property(u => u.CreatedAt)
-                    .HasColumnType("datetime2")
-                    .HasDefaultValueSql("GETUTCDATE()")
+                    //.HasColumnType("datetime2") PARA SQL SERVER
+                    //.HasDefaultValueSql("GETUTCDATE()") PARA SQL SERVER
+                    .HasColumnType("timestamp with time zone")
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP")
                     .IsRequired();
 
                 // Usuário ativo/inativo
@@ -102,17 +106,20 @@ namespace olhuz.API.Data
                 // CPF só precisa ser único entre usuários ativos
                 entity.HasIndex(u => u.CPF)
                     .IsUnique()
-                    .HasFilter("[IsActive] = 1");
+                    //.HasFilter("[IsActive] = 1"); PARA SQL SERVER
+                    .HasFilter("\"IsActive\" = true");
 
                 // Telefone só precisa ser único entre usuários ativos
                 entity.HasIndex(u => u.PhoneNumber)
                     .IsUnique()
-                    .HasFilter("[IsActive] = 1");
+                    //.HasFilter("[IsActive] = 1"); PARA SQL SERVER
+                    .HasFilter("\"IsActive\" = true");
 
                 // E-mail só precisa ser único entre usuários ativos
                 entity.HasIndex(u => u.Email)
                     .IsUnique()
-                    .HasFilter("[IsActive] = 1");
+                    //.HasFilter("[IsActive] = 1"); PARA SQL SERVER
+                    .HasFilter("\"IsActive\" = true");
 
                 // RELACIONAMENTO COM USER PREFERENCES
                 // -> Um usuário possui apenas uma preferência.
@@ -135,9 +142,10 @@ namespace olhuz.API.Data
                 // Chave primária
                 entity.HasKey(p => p.Id);
 
-                // ID gerado pelo SQL Server
+                // ID gerado pelo Banco
                 entity.Property(p => p.Id)
-                    .HasDefaultValueSql("NEWID()");
+                    //.HasDefaultValueSql("NEWID()"); PARA SQL SERVER
+                    .HasDefaultValueSql("gen_random_uuid()");
 
                 entity.Property(p => p.ScreenReader)
                     .HasDefaultValue(false);
@@ -182,9 +190,10 @@ namespace olhuz.API.Data
                 // Chave primária
                 entity.HasKey(e => e.Id);
 
-                // ID gerado pelo SQL Server
+                // ID gerado pelo Banco
                 entity.Property(e => e.Id)
-                    .HasDefaultValueSql("NEWID()");
+                    //.HasDefaultValueSql("NEWID()"); PARA SQL SERVER
+                    .HasDefaultValueSql("gen_random_uuid()");
 
                 // Tipo do arquivo (Imagem, Documento, etc.)
                 entity.Property(e => e.Type)
@@ -210,13 +219,16 @@ namespace olhuz.API.Data
 
                 // Data do upload
                 entity.Property(e => e.UploadDate)
-                    .HasColumnType("datetime2")
-                    .HasDefaultValueSql("GETUTCDATE()")
+                    //.HasColumnType("datetime2") PARA SQL SERVER
+                    //.HasDefaultValueSql("GETUTCDATE()") PARA SQL SERVER
+                    .HasColumnType("timestamp with time zone")
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP")
                     .IsRequired();
 
                 // Descrição gerada
                 entity.Property(e => e.DescriptionText)
-                    .HasColumnType("nvarchar(max)")
+                    //.HasColumnType("nvarchar(max)") PARA SQL SERVER
+                    .HasColumnType("text")
                     .IsRequired();
 
                 // Configura a relação: Um usuário possui muitas leituras
