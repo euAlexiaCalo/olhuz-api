@@ -139,17 +139,21 @@ namespace olhuz.API
             // Constrói a aplicação com as configurações acima
             var app = builder.Build();
 
+            // Configuração dinâmica de porta para hospedagem em nuvem (Render)
+            var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+            app.Urls.Add($"http://*:{port}");
+
             // ========================================
             // PIPELINE DE EXECUÇÃO
             // ========================================
-            if (app.Environment.IsDevelopment())
-            {
-                // Gera documentação da API.
-                app.UseSwagger();
+            //if (app.Environment.IsDevelopment()) ---- COMENTADO PARA O RENDER
+            //{
+            // Gera documentação da API.
+            app.UseSwagger();
 
                 // Interface gráfica do Swagger
                 app.UseSwaggerUI();
-            }
+            //}
 
             // ========================================
             // MIDDLEWARES DA APLICAÇÃO
